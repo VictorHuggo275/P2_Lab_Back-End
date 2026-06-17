@@ -27,8 +27,6 @@ class Produto(Base):
     ativo = Column(Boolean, default=True)
 
 
-# Cria as tabelas caso ainda não existam
-Base.metadata.create_all(bind=engine)
 
 
 def get_db():
