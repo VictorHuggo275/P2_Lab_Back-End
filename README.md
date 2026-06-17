@@ -39,61 +39,37 @@ Projeto desenvolvido para a disciplina **Desenvolvimento de APIs com FastAPI**, 
 ### Produto
 
 | Campo | Tipo | Descrição |
-|---------|---------|---------|
-| id | Integer | Chave primária gerada automaticamente |
+|---|---|---|
+| id | Integer | Chave primária gerada automaticamente pelo banco |
 | nome | String | Nome do produto |
-| preco | Float | Preço do produto |
+| preco | Float | Preço em reais |
 | estoque | Integer | Quantidade em estoque |
 | ativo | Boolean | Disponível para venda |
 
 ---
 
-## Endpoints
+# Endpoints
 
-### Listar Produtos
+## Listar Produtos
 
 ```http
 GET /produtos
 ```
 
-Resposta:
-
-```json
-[
-  {
-    "id": 1,
-    "nome": "Notebook",
-    "preco": 3500.0,
-    "estoque": 10,
-    "ativo": true
-  }
-]
-```
+Retorna todos os produtos cadastrados.
 
 ---
 
-### Criar Produto
+## Criar Produto
 
 ```http
 POST /produtos
 ```
 
-Exemplo de requisição:
+Exemplo:
 
 ```json
 {
-  "nome": "Notebook",
-  "preco": 3500,
-  "estoque": 10,
-  "ativo": true
-}
-```
-
-Resposta:
-
-```json
-{
-  "id": 1,
   "nome": "Notebook",
   "preco": 3500,
   "estoque": 10,
@@ -103,37 +79,23 @@ Resposta:
 
 ---
 
-### Buscar Produto por ID
+## Buscar Produto por ID
 
 ```http
 GET /produtos/{id}
 ```
 
-Resposta:
-
-```json
-{
-  "id": 1,
-  "nome": "Notebook",
-  "preco": 3500,
-  "estoque": 10,
-  "ativo": true
-}
-```
+Retorna o produto informado ou erro 404 caso não exista.
 
 ---
 
-### Deletar Produto
+## Deletar Produto
 
 ```http
 DELETE /produtos/{id}
 ```
 
-Resposta:
-
-```http
-204 No Content
-```
+Remove o produto informado ou retorna erro 404 caso não exista.
 
 ---
 
@@ -142,61 +104,55 @@ Resposta:
 O projeto utiliza dois bancos PostgreSQL separados:
 
 | Serviço | Porta | Finalidade |
-|----------|----------|----------|
+|---|---|---|
 | db | 5432 | Desenvolvimento |
-| db_test | 5433 | Testes Automatizados |
+| db_test | 5433 | Testes automatizados |
+
+O banco de testes é separado do banco principal para garantir isolamento durante a execução dos testes.
 
 ---
 
-## Subindo o Banco de Testes
+# Instalação
 
-Executar:
+Instale as dependências do projeto:
 
 ```bash
-docker compose up -d db_test
+pip install -r requirements.txt
 ```
 
-Verificar se o container está rodando:
+---
+
+# Executando o Banco de Testes
+
+Inicie o banco PostgreSQL utilizado pelos testes:
+
+```bash
+docker-compose up -d db_test
+```
+
+Verifique se o container está rodando:
 
 ```bash
 docker ps
 ```
 
-Saída esperada:
-
-```text
-produtos_db_test
-```
-
-Verificar saúde do banco:
-
-```bash
-docker inspect produtos_db_test
-```
-
-Deve aparecer:
-
-```json
-"Status": "healthy"
-```
-
 ---
 
-## Executando a API
+# Executando a API
 
-Subir o banco principal:
-
-```bash
-docker compose up -d db
-```
-
-Executar a aplicação:
+Suba todos os serviços:
 
 ```bash
-uvicorn main:app --reload
+docker-compose up -d
 ```
 
-A documentação Swagger estará disponível em:
+A API estará disponível em:
+
+```text
+http://localhost:8000
+```
+
+Documentação Swagger:
 
 ```text
 http://localhost:8000/docs
@@ -204,69 +160,71 @@ http://localhost:8000/docs
 
 ---
 
-## Executando os Testes
+# Executando os Testes
 
-### Com Python Local
-
-```bash
-pytest -v
-```
-
----
-
-### Com Cobertura
+Com o banco de testes ativo, execute:
 
 ```bash
-pytest --cov=main --cov-report=term-missing -v
-```
-
----
-
-### Utilizando Docker
-
-Construir a imagem:
-
-```bash
-docker build -t produtos-api .
-```
-
-Executar os testes:
-
-```bash
-docker run --rm \
---network host \
--v $(pwd):/app \
--w /app \
-produtos-api \
 pytest --cov=main -v
 ```
 
 ---
 
-## Casos de Teste Implementados
+# Casos de Teste Implementados
 
-A suíte contém testes para:
+A suíte de testes cobre:
 
 - Listar produtos com banco vazio
-- Criar produto
-- Verificar persistência após criação
-- Verificar presença na listagem
+- Criar produto e verificar persistência
+- Criar produto e verificar presença na listagem
 - Buscar produto existente por ID
-- Buscar produto inexistente
-- Deletar produto
+- Buscar produto inexistente (404)
+- Deletar produto (204)
 - Confirmar remoção após DELETE
-- Deletar produto inexistente
-- Validação de payloads inválidos (422)
+- Deletar produto inexistente (404)
+- Validação de payload inválido com retorno 422
 - Isolamento do banco entre execuções
 
-Total: **11 testes automatizados**
+Total: **14 testes automatizados**
 
 ---
 
-## Exemplo de Saída Esperada
+# Fixtures de Teste
+
+A fixture `client` é responsável pelo isolamento dos testes.
+
+Antes de cada teste, as tabelas são criadas utilizando:
+
+```python
+Base.metadata.create_all(bind=engine)
+```
+
+A dependência do banco é substituída utilizando:
+
+```python
+app.dependency_overrides[get_db]
+```
+
+Dessa forma, todos os testes utilizam exclusivamente o banco PostgreSQL de teste (`db_test`).
+
+Após a execução, as tabelas são removidas utilizando:
+
+```python
+Base.metadata.drop_all(bind=engine)
+```
+
+Cada teste inicia com um banco limpo, evitando compartilhamento de dados entre execuções e garantindo independência da ordem dos testes.
+
+Também existe a fixture auxiliar `produto_existente`, que depende da fixture `client` e cria produtos previamente cadastrados para testes que necessitam de dados existentes.
+
+---
+
+# Saída Esperada
 
 ```text
 ============================= test session starts =============================
+
+collected 14 items
 
 tests/test_produtos.py::test_listar_produtos_vazio PASSED
 tests/test_produtos.py::test_criar_produto PASSED
@@ -278,37 +236,28 @@ tests/test_produtos.py::test_deletar_produto PASSED
 tests/test_produtos.py::test_confirmar_remocao PASSED
 tests/test_produtos.py::test_deletar_produto_inexistente PASSED
 tests/test_produtos.py::test_payloads_invalidos_retorna_422 PASSED
+...
 tests/test_produtos.py::test_isolamento_do_banco PASSED
 
-============================= 11 passed =============================
+================================ tests coverage ================================
+
+Name      Stmts   Miss  Cover
+-----------------------------
+main.py      60      4    93%
+-----------------------------
+TOTAL        60      4    93%
+
+============================== 14 passed in 0.80s ==============================
 ```
 
 ---
 
-## Como Funciona o Isolamento dos Testes
+# Comando de Verificação Final
 
-A fixture `client` implementa isolamento completo entre os testes:
+Para verificar o funcionamento completo do projeto:
 
-1. Cria as tabelas antes da execução com:
-
-```python
-Base.metadata.create_all(bind=engine)
+```bash
+docker-compose up -d db_test && pytest --cov=main -v
 ```
 
-2. Substitui a dependência do banco utilizando:
-
-```python
-app.dependency_overrides[get_db]
-```
-
-3. Executa os testes utilizando o banco PostgreSQL de teste.
-
-4. Remove todas as tabelas após a execução com:
-
-```python
-Base.metadata.drop_all(bind=engine)
-```
-
-Dessa forma cada execução inicia com um banco limpo, garantindo independência da ordem dos testes e evitando compartilhamento de estado.
-
----
+Todos os testes devem passar com cobertura superior a 85%.
